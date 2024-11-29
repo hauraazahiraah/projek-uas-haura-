@@ -1,0 +1,203 @@
+import sqlite3
+from tkinter import *
+from tkinter import ttk, messagebox
+
+# Setup database
+def initialize_db():
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            price REAL NOT NULL,
+            stock INTEGER NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Add product to database
+def add_product():
+    name = entry_name.get()
+    category = entry_category.get()
+    try:
+        price = float(entry_price.get())
+        stock = int(entry_stock.get())
+    except ValueError:
+        messagebox.showerror("Input Error", "Harga dan stok harus berupa angka.")
+        return
+
+    if name == "" or category == "":
+        messagebox.showerror("Input Error", "Semua bidang harus diisi.")
+        return
+
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO products (name, category, price, stock) VALUES (?, ?, ?, ?)",
+                   (name, category, price, stock))
+    conn.commit()
+    conn.close()
+    messagebox.showinfo("Success", "Produk berhasil ditambahkan.")
+    reset_form()
+    show_products()
+
+# Update product
+def update_product():
+    try:
+        selected_item = table.selection()[0]
+    except IndexError:
+        messagebox.showerror("Selection Error", "Pilih produk yang ingin diubah.")
+        return
+
+    product_id = table.item(selected_item, "values")[0]
+    name = entry_name.get()
+    category = entry_category.get()
+    try:
+        price = float(entry_price.get())
+        stock = int(entry_stock.get())
+    except ValueError:
+        messagebox.showerror("Input Error", "Harga dan stok harus berupa angka.")
+        return
+
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE products 
+        SET name = ?, category = ?, price = ?, stock = ?
+        WHERE id = ?
+    """, (name, category, price, stock, product_id))
+    conn.commit()
+    conn.close()
+    messagebox.showinfo("Success", "Produk berhasil diperbarui.")
+    reset_form()
+    show_products()
+
+# Delete product
+def delete_product():
+    try:
+        selected_item = table.selection()[0]
+    except IndexError:
+        messagebox.showerror("Selection Error", "Pilih produk yang ingin dihapus.")
+        return
+
+    product_id = table.item(selected_item, "values")[0]
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+    conn.commit()
+    conn.close()
+    messagebox.showinfo("Success", "Produk berhasil dihapus.")
+    reset_form()
+    show_products()
+
+# Search product
+def search_product():
+    keyword = entry_search.get()
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM products 
+        WHERE name LIKE ? OR category LIKE ?
+    """, ('%' + keyword + '%', '%' + keyword + '%'))
+    rows = cursor.fetchall()
+    conn.close()
+    update_table(rows)
+
+# Show products in table
+def show_products():
+    conn = sqlite3.connect("store.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM products")
+    rows = cursor.fetchall()
+    conn.close()
+    update_table(rows)
+
+# Reset form
+def reset_form():
+    entry_name.delete(0, END)
+    entry_category.delete(0, END)
+    entry_price.delete(0, END)
+    entry_stock.delete(0, END)
+
+# Update table
+def update_table(rows):
+    table.delete(*table.get_children())
+    for row in rows:
+        table.insert("", END, values=row)
+
+# GUI setup
+root = Tk()
+root.title("Wand & Glow Apothecary")  # Nama toko
+root.geometry("800x600")
+root.configure(bg="#800000")  # Maroon color
+
+# Store information
+store_name = "Wand & Glow Apothecary"
+
+# Title
+Label(root, text=store_name, font=("Helvetica", 24, "bold"), bg="#800000", fg="white").pack(pady=5)
+
+# Form
+frame_form = Frame(root, bg="#800000")
+frame_form.pack(pady=10)
+
+Label(frame_form, text="Nama Produk", bg="#800000", fg="white", font=("Helvetica", 12)).grid(row=0, column=0, padx=10, pady=5)
+entry_name = Entry(frame_form, width=25)
+entry_name.grid(row=0, column=1, padx=10, pady=5)
+
+Label(frame_form, text="Kategori", bg="#800000", fg="white", font=("Helvetica", 12)).grid(row=1, column=0, padx=10, pady=5)
+entry_category = Entry(frame_form, width=25)
+entry_category.grid(row=1, column=1, padx=10, pady=5)
+
+Label(frame_form, text="Harga", bg="#800000", fg="white", font=("Helvetica", 12)).grid(row=2, column=0, padx=10, pady=5)
+entry_price = Entry(frame_form, width=25)
+entry_price.grid(row=2, column=1, padx=10, pady=5)
+
+Label(frame_form, text="Stok", bg="#800000", fg="white", font=("Helvetica", 12)).grid(row=3, column=0, padx=10, pady=5)
+entry_stock = Entry(frame_form, width=25)
+entry_stock.grid(row=3, column=1, padx=10, pady=5)
+
+Button(frame_form, text="Tambah Produk", command=add_product, bg="white", fg="#800000", width=15).grid(row=4, column=0, pady=10)
+Button(frame_form, text="Perbarui Produk", command=update_product, bg="white", fg="#800000", width=15).grid(row=4, column=1, pady=10)
+Button(frame_form, text="Hapus Produk", command=delete_product, bg="white", fg="#800000", width=15).grid(row=4, column=2, pady=10)
+
+# Search
+frame_search = Frame(root, bg="#800000")
+frame_search.pack(pady=10)
+
+Label(frame_search, text="Cari Produk", bg="#800000", fg="white", font=("Helvetica", 12)).grid(row=0, column=0, padx=10, pady=5)
+entry_search = Entry(frame_search, width=30)
+entry_search.grid(row=0, column=1, padx=10, pady=5)
+Button(frame_search, text="Cari", command=search_product, bg="white", fg="#800000", width=15).grid(row=0, column=2, pady=10)
+
+# Table
+frame_table = Frame(root)
+frame_table.pack(pady=10)
+
+columns = ("ID", "Nama", "Kategori", "Harga", "Stok")
+table = ttk.Treeview(frame_table, columns=columns, show="headings", height=15)
+table.pack()
+
+for col in columns:
+    table.heading(col, text=col)
+    table.column(col, anchor="center")
+
+# Additional buttons
+frame_buttons = Frame(root, bg="#800000")
+frame_buttons.pack(pady=10)
+
+# Reset Button
+Button(frame_buttons, text="Reset Form", command=reset_form, bg="white", fg="#800000", width=15).pack(side=LEFT, padx=10)
+
+# Refresh Button
+Button(frame_buttons, text="Segarkan Produk", command=show_products, bg="white", fg="#800000", width=15).pack(side=LEFT, padx=10)
+
+# View Details Button (just an example, it doesn't do anything yet)
+Button(frame_buttons, text="Lihat Detail", bg="white", fg="#800000", width=15).pack(side=LEFT, padx=10)
+
+# Run the app
+initialize_db()
+show_products()
+root.mainloop()
